@@ -1,7 +1,6 @@
 package net.lr1ne;
 
 import org.bukkit.Material;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -11,31 +10,32 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.NamespacedKey;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Main extends JavaPlugin implements Listener {
 
-    private int despawnTime;
     private String headName;
     private List<String> headLore;
+    private NamespacedKey loreKey;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-
-        despawnTime = getConfig().getInt("head-drop.despawn-time", 30);
         headName = getConfig().getString("head-drop.head-name", "&cГолова %player%");
         headLore = getConfig().getStringList("head-drop.head-lore");
-
+        loreKey = new NamespacedKey(this, "head_lore");
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("DropAHead включен!");
+        getLogger().info("DropAHead enabled!");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("DropAHead выключен!");
+        getLogger().info("DropAHead disabled!");
     }
 
     @EventHandler
@@ -46,23 +46,30 @@ public class Main extends JavaPlugin implements Listener {
         if (killer != null && isAxe(killer.getInventory().getItemInMainHand().getType())) {
             ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
-            skullMeta.setOwningPlayer(victim);
+            if (skullMeta == null) return;
 
+            skullMeta.setOwningPlayer(victim);
             String formattedName = headName.replace("%player%", victim.getName());
             Component nameComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(formattedName);
             skullMeta.displayName(nameComponent);
 
             List<Component> formattedLore = new ArrayList<>();
+            List<String> loreStrings = new ArrayList<>();
             for (String line : headLore) {
                 String formattedLine = line.replace("%player%", victim.getName());
+                loreStrings.add(formattedLine);
                 formattedLore.add(LegacyComponentSerializer.legacyAmpersand().deserialize(formattedLine));
             }
             skullMeta.lore(formattedLore);
 
+            PersistentDataContainer pdc = skullMeta.getPersistentDataContainer();
+            pdc.set(loreKey, PersistentDataType.LIST.strings(), loreStrings);
+
             playerHead.setItemMeta(skullMeta);
 
-            Item droppedItem = victim.getWorld().dropItemNaturally(victim.getLocation(), playerHead);
-            droppedItem.setTicksLived(6000 - (despawnTime * 20));
+            getServer().getScheduler().runTask(this, () ->
+                    victim.getWorld().dropItemNaturally(victim.getLocation(), playerHead)
+            );
         }
     }
 
