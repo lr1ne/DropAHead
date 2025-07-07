@@ -2,3 +2,13 @@ name: DropAHead
 version: '1.0-SNAPSHOT'
 main: net.lr1ne.Main
 api-version: '1.21'
+commands:
+  dap:
+    description: Reloads the DropAHead configuration
+    usage: /<command> reload
+    aliases:
+      - dropahead
+permissions:
+  dropahead.reload:
+    description: Allows reloading the DropAHead configuration
+    default: op

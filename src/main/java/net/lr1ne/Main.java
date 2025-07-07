@@ -1,6 +1,9 @@
 package net.lr1ne;
 
 import org.bukkit.Material;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -13,9 +16,11 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.NamespacedKey;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Main extends JavaPlugin implements Listener {
 
@@ -27,16 +32,21 @@ public class Main extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        headName = getConfig().getString("head-drop.head-name", "&cГолова %player%");
-        headLore = getConfig().getStringList("head-drop.head-lore");
-        loreKey = new NamespacedKey(this, "head_lore");
+        loadConfig();
         getServer().getPluginManager().registerEvents(this, this);
+        Objects.requireNonNull(getCommand("dap")).setExecutor(new ReloadCommand());
         getLogger().info("DropAHead enabled!");
     }
 
     @Override
     public void onDisable() {
         getLogger().info("DropAHead disabled!");
+    }
+
+    private void loadConfig() {
+        headName = getConfig().getString("head-drop.head-name", "&c&lГолова %player%");
+        headLore = getConfig().getStringList("head-drop.head-lore");
+        loreKey = new NamespacedKey(this, "head_lore");
     }
 
     @EventHandler
@@ -81,5 +91,22 @@ public class Main extends JavaPlugin implements Listener {
                 material == Material.GOLDEN_AXE ||
                 material == Material.DIAMOND_AXE ||
                 material == Material.NETHERITE_AXE;
+    }
+    private class ReloadCommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
+            if (!sender.hasPermission("dropahead.reload")) {
+                sender.sendMessage(Component.text("You do not have permission for this command!"));
+                return true;
+            }
+            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+                reloadConfig();
+                loadConfig();
+                sender.sendMessage(Component.text("DropAHead config reloaded!"));
+                return true;
+            }
+            sender.sendMessage(Component.text("Usage: /dap reload"));
+            return true;
+        }
     }
 }
