@@ -22,6 +22,7 @@ public class Main extends JavaPlugin implements Listener {
     private String headName;
     private List<String> headLore;
     private NamespacedKey loreKey;
+    // victim.getName()
 
     @Override
     public void onEnable() {
@@ -49,14 +50,14 @@ public class Main extends JavaPlugin implements Listener {
             if (skullMeta == null) return;
 
             skullMeta.setOwningPlayer(victim);
-            String formattedName = headName.replace("%player%", victim.getName());
+            String formattedName = headName.replace("%player%", victim.getName()).replace("%killer%", killer.getName());
             Component nameComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(formattedName);
             skullMeta.displayName(nameComponent);
 
             List<Component> formattedLore = new ArrayList<>();
             List<String> loreStrings = new ArrayList<>();
             for (String line : headLore) {
-                String formattedLine = line.replace("%player%", victim.getName());
+                String formattedLine = line.replace("%player%", victim.getName()).replace("%killer%", killer.getName());
                 loreStrings.add(formattedLine);
                 formattedLore.add(LegacyComponentSerializer.legacyAmpersand().deserialize(formattedLine));
             }

@@ -1,9 +1,7 @@
 # HeadDropPlugin config
+# %player% - имя жертвы; %killer% - имя убийцы
 
 head-drop:
-  # Название головы (%player% заменится на имя жертвы)
-  head-name: "&cГолова %player%"
-  # Описание головы
+  head-name: "&c&lГолова %player%"
   head-lore:
-    - "&7Отрублена топором"
-    - "&7Игрок: %player%"
+    - "&7Отрублена кровожадным &o%killer%"
