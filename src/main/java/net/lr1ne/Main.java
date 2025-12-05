@@ -1,6 +1,11 @@
 package net.lr1ne;
 
+//
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -11,11 +16,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.NamespacedKey;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -23,18 +23,22 @@ import java.util.List;
 import java.util.Objects;
 
 public class Main extends JavaPlugin implements Listener {
+    private static final MiniMessage SERIALIZER = MiniMessage.miniMessage();
 
     private String headName;
     private List<String> headLore;
-    private NamespacedKey loreKey;
-    // victim.getName()
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        loadConfig();
+        loadConfigValues();
         getServer().getPluginManager().registerEvents(this, this);
-        Objects.requireNonNull(getCommand("dap")).setExecutor(new ReloadCommand());
+
+        var cmd = getCommand("dap");
+        if (cmd != null) {
+            cmd.setExecutor(new ReloadCommand());
+        }
+
         getLogger().info("DropAHead enabled!");
     }
 
@@ -43,10 +47,10 @@ public class Main extends JavaPlugin implements Listener {
         getLogger().info("DropAHead disabled!");
     }
 
-    private void loadConfig() {
+    private void loadConfigValues() {
+        reloadConfig();
         headName = getConfig().getString("head-drop.head-name", "&c&lГолова %player%");
         headLore = getConfig().getStringList("head-drop.head-lore");
-        loreKey = new NamespacedKey(this, "head_lore");
     }
 
     @EventHandler
@@ -54,58 +58,46 @@ public class Main extends JavaPlugin implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
 
-        if (killer != null && isAxe(killer.getInventory().getItemInMainHand().getType())) {
+        if (killer != null && Tag.ITEMS_AXES.isTagged(killer.getInventory().getItemInMainHand().getType())) {
+
             ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
-            SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
-            if (skullMeta == null) return;
-
-            skullMeta.setOwningPlayer(victim);
-            String formattedName = headName.replace("%player%", victim.getName()).replace("%killer%", killer.getName());
-            Component nameComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(formattedName);
-            skullMeta.displayName(nameComponent);
-
-            List<Component> formattedLore = new ArrayList<>();
-            List<String> loreStrings = new ArrayList<>();
-            for (String line : headLore) {
-                String formattedLine = line.replace("%player%", victim.getName()).replace("%killer%", killer.getName());
-                loreStrings.add(formattedLine);
-                formattedLore.add(LegacyComponentSerializer.legacyAmpersand().deserialize(formattedLine));
+            if (!(playerHead.getItemMeta() instanceof SkullMeta skullMeta)) {
+                return;
             }
-            skullMeta.lore(formattedLore);
+            skullMeta.setOwningPlayer(victim);
+            String formattedName = headName
+                    .replace("%player%", victim.getName())
+                    .replace("%killer%", killer.getName());
+            skullMeta.displayName(SERIALIZER.deserialize(formattedName));
 
-            PersistentDataContainer pdc = skullMeta.getPersistentDataContainer();
-            pdc.set(loreKey, PersistentDataType.LIST.strings(), loreStrings);
-
+            if (!headLore.isEmpty()) {
+                List<Component> formattedLore = new ArrayList<>();
+                for (String line : headLore) {
+                    String formattedLine = line
+                            .replace("%player%", victim.getName())
+                            .replace("%killer%", killer.getName());
+                    formattedLore.add(SERIALIZER.deserialize(formattedLine));
+                }
+                skullMeta.lore(formattedLore);
+            }
             playerHead.setItemMeta(skullMeta);
-
-            getServer().getScheduler().runTask(this, () ->
-                    victim.getWorld().dropItemNaturally(victim.getLocation(), playerHead)
-            );
+            event.getDrops().add(playerHead);
         }
     }
 
-    private boolean isAxe(Material material) {
-        return material == Material.WOODEN_AXE ||
-                material == Material.STONE_AXE ||
-                material == Material.IRON_AXE ||
-                material == Material.GOLDEN_AXE ||
-                material == Material.DIAMOND_AXE ||
-                material == Material.NETHERITE_AXE;
-    }
     private class ReloadCommand implements CommandExecutor {
         @Override
-        public boolean onCommand(CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
+        public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
             if (!sender.hasPermission("dropahead.reload")) {
                 sender.sendMessage(Component.text("You do not have permission for this command!"));
                 return true;
             }
-            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-                reloadConfig();
-                loadConfig();
+            if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+                loadConfigValues();
                 sender.sendMessage(Component.text("DropAHead config reloaded!"));
-                return true;
+            } else {
+                sender.sendMessage(Component.text("Usage: /dap reload"));
             }
-            sender.sendMessage(Component.text("Usage: /dap reload"));
             return true;
         }
     }
